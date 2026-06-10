@@ -1,0 +1,13 @@
+{
+  "venvPath": "tokensave/backend",
+  "venv": ".venv",
+  "extraPaths": [
+    "tokensave/backend"
+  ],
+  "exclude": [
+    "**/node_modules",
+    "**/__pycache__",
+    "tokensave/backend/.venv",
+    ".venv"
+  ]
+}
