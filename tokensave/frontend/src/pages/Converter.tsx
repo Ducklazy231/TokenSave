@@ -305,7 +305,7 @@ export default function Converter() {
                       </span>
                       {item.status === "success" && item.data?.warnings && item.data.warnings.length > 0 && (
                         <div className="mt-1.5 space-y-1 pl-1 border-l border-border/60">
-                          {item.data.warnings.map((warn, wIdx) => {
+                          {item.data?.warnings?.map((warn: string, wIdx: number) => {
                             const isWarning = warn.includes("of") && warn.includes("processed")
                             return (
                               <div key={wIdx} className={cn(
