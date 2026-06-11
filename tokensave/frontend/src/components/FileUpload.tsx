@@ -1,69 +1,108 @@
 import { useCallback, useRef, useState } from "react"
-import { FileText, Loader2, UploadCloud, ShieldAlert } from "lucide-react"
+import { FileText, Loader2, UploadCloud, ShieldAlert, Trash2, CheckCircle2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/lib/toast"
-import { Turnstile } from "./Turnstile"
+import { Button } from "@/components/ui/button"
 
 const ACCEPTED = ".pdf,.docx,.pptx,.xlsx,.txt,.html,.htm"
 const MAX_SIZE_BYTES = 10 * 1024 * 1024 // 10MB
+const MAX_FILES = 5
 
 interface FileUploadProps {
-  onFile: (file: File, turnstileToken: string) => void
+  onFiles: (files: File[]) => void
   loading?: boolean
 }
 
-export function FileUpload({ onFile, loading }: FileUploadProps) {
+export function FileUpload({ onFiles, loading }: FileUploadProps) {
   const [dragging, setDragging] = useState(false)
-  const [turnstileToken, setTurnstileToken] = useState<string | null>(null)
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
 
-  const validateAndHandleFile = useCallback(
-    (files: FileList | null) => {
-      if (!files || files.length === 0) return
+  function formatBytes(bytes: number): string {
+    if (bytes === 0) return "0 Bytes"
+    const k = 1024
+    const sizes = ["Bytes", "KB", "MB"]
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i]
+  }
 
-      // 1. Check turnstile bot protection token
-      if (!turnstileToken) {
-        toast({
-          title: "Verification Required",
-          description: "Please complete the security check before uploading.",
-          type: "error",
-        })
-        return
-      }
-      
-      const file = files[0]
-      const ext = "." + file.name.split(".").pop()?.toLowerCase()
-      
-      // 2. Client-side extension validation
+  const addFiles = useCallback(
+    (filesList: FileList | null) => {
+      if (!filesList || filesList.length === 0) return
+
+      const newFiles: File[] = []
       const allowedExtensions = ACCEPTED.split(",")
-      if (!allowedExtensions.includes(ext)) {
+
+      for (let i = 0; i < filesList.length; i++) {
+        const file = filesList[i]
+        const ext = "." + file.name.split(".").pop()?.toLowerCase()
+
+        // 1. Client-side extension validation
+        if (!allowedExtensions.includes(ext)) {
+          toast({
+            title: "Unsupported Format",
+            description: `'${file.name}' format is not supported. Please upload PDF, DOCX, PPTX, XLSX, TXT, or HTML.`,
+            type: "error",
+          })
+          continue
+        }
+
+        // 2. Client-side size guard (10MB)
+        if (file.size > MAX_SIZE_BYTES) {
+          toast({
+            title: "File Too Large",
+            description: `'${file.name}' exceeds the 10MB size limit.`,
+            type: "error",
+          })
+          continue
+        }
+
+        // Avoid duplicate files in the list
+        if (selectedFiles.some((f) => f.name === file.name && f.size === file.size)) {
+          continue
+        }
+
+        newFiles.push(file)
+      }
+
+      if (newFiles.length === 0) return
+
+      // 3. Limit validation
+      if (selectedFiles.length + newFiles.length > MAX_FILES) {
         toast({
-          title: "Unsupported Format",
-          description: `The file format '${ext}' is not supported. Please upload PDF, DOCX, PPTX, XLSX, TXT, or HTML.`,
+          title: "Limit Exceeded",
+          description: `You can upload a maximum of ${MAX_FILES} files per conversion.`,
           type: "error",
         })
         return
       }
 
-      // 3. Client-side size guard (10MB)
-      if (file.size > MAX_SIZE_BYTES) {
-        toast({
-          title: "Payload Too Large",
-          description: `The uploaded file size exceeds the 10MB limit. Please upload a smaller document.`,
-          type: "error",
-        })
-        return
-      }
-
-      // Valid file and bot check passed
-      onFile(file, turnstileToken)
+      setSelectedFiles((prev) => [...prev, ...newFiles])
     },
-    [onFile, turnstileToken, toast],
+    [selectedFiles, toast],
   )
 
+  function removeFile(index: number) {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  function handleConvert() {
+    if (selectedFiles.length === 0) {
+      toast({
+        title: "No files selected",
+        description: "Please select or drop at least one file to convert.",
+        type: "error",
+      })
+      return
+    }
+
+    onFiles(selectedFiles)
+  }
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      {/* Upload Drop Zone Card */}
       <div
         role="button"
         tabIndex={0}
@@ -80,10 +119,10 @@ export function FileUpload({ onFile, loading }: FileUploadProps) {
         onDrop={(e) => {
           e.preventDefault()
           setDragging(false)
-          if (!loading) validateAndHandleFile(e.dataTransfer.files)
+          if (!loading) addFiles(e.dataTransfer.files)
         }}
         className={cn(
-          "group flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-border/80 bg-card/20 px-6 py-16 text-center transition-all duration-200 relative overflow-hidden",
+          "group flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-border/80 bg-card/20 px-6 py-14 text-center transition-all duration-200 relative overflow-hidden",
           dragging && "border-primary/80 bg-primary/5 scale-[0.99] shadow-inner",
           loading && "pointer-events-none opacity-80",
           "hover:border-primary/50 hover:bg-card/40"
@@ -93,8 +132,9 @@ export function FileUpload({ onFile, loading }: FileUploadProps) {
           ref={inputRef}
           type="file"
           accept={ACCEPTED}
+          multiple
           className="hidden"
-          onChange={(e) => validateAndHandleFile(e.target.files)}
+          onChange={(e) => addFiles(e.target.files)}
         />
 
         <div className={cn(
@@ -109,20 +149,20 @@ export function FileUpload({ onFile, loading }: FileUploadProps) {
         </div>
 
         <h3 className="mt-4 text-base font-semibold tracking-tight text-foreground">
-          {loading ? "Optimizing document..." : "Drag & drop your document"}
+          {loading ? "Batch converting documents..." : "Select or drag & drop files"}
         </h3>
         <p className="mt-1.5 text-xs text-muted-foreground max-w-sm">
           {loading
-            ? "Converting bytes to markdown, parsing structures, and running token models"
-            : "or click here to browse your files"}
+            ? "Processing your documents sequentially using Microsoft MarkItDown"
+            : "Drop up to 5 documents here, or click to browse files"}
         </p>
 
         {/* Supported Types Indicators */}
-        <div className="mt-6 flex flex-wrap items-center justify-center gap-1.5">
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-1.5">
           {["PDF", "DOCX", "PPTX", "XLSX", "TXT", "HTML"].map((t) => (
             <span
               key={t}
-              className="flex items-center gap-1 rounded-md bg-muted/50 px-2 py-0.5 text-[10px] font-medium text-muted-foreground border border-border/30 transition-colors group-hover:bg-background"
+              className="flex items-center gap-1 rounded-md bg-muted/50 px-2 py-0.5 text-[10px] font-medium text-muted-foreground border border-border/30"
             >
               <FileText className="h-2.5 w-2.5" />
               {t}
@@ -131,36 +171,63 @@ export function FileUpload({ onFile, loading }: FileUploadProps) {
         </div>
       </div>
 
-      {/* Bot Protection Widget (Clicking here shouldn't open file browse dialog) */}
-      {!loading && (
-        <div
-          onClick={(e) => e.stopPropagation()}
-          className="flex flex-col items-center justify-center gap-2 p-4 rounded-xl border border-border/50 bg-card/10 backdrop-blur-sm"
-        >
-          <span className="text-xs text-muted-foreground font-medium">
-            Security check required before conversion
-          </span>
-          <Turnstile
-            onVerify={(token) => {
-              setTurnstileToken(token)
-            }}
-            onExpire={() => {
-              setTurnstileToken(null)
-              toast({
-                title: "Verification Expired",
-                description: "The security check expired. Please complete it again.",
-                type: "info",
-              })
-            }}
-            onError={() => {
-              setTurnstileToken(null)
-              toast({
-                title: "Verification Error",
-                description: "A security check error occurred. Please reload the page.",
-                type: "error",
-              })
-            }}
-          />
+      {/* Selected Files List Section */}
+      {selectedFiles.length > 0 && (
+        <div className="rounded-xl border border-border/60 bg-card/10 overflow-hidden">
+          <div className="border-b border-border/40 bg-muted/30 px-4 py-2.5 flex items-center justify-between">
+            <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+              <CheckCircle2 className="h-4 w-4 text-primary" />
+              Queue ({selectedFiles.length} of {MAX_FILES} files)
+            </span>
+            {!loading && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedFiles([])}
+                className="h-7 text-xs text-muted-foreground hover:text-destructive px-2"
+              >
+                Clear all
+              </Button>
+            )}
+          </div>
+          <div className="divide-y divide-border/40">
+            {selectedFiles.map((file, idx) => (
+              <div key={`${file.name}-${idx}`} className="flex items-center justify-between px-4 py-3 text-sm">
+                <div className="flex items-center gap-2.5 overflow-hidden">
+                  <FileText className="h-4.5 w-4.5 text-muted-foreground flex-shrink-0" />
+                  <div className="truncate">
+                    <p className="font-medium text-foreground truncate text-xs">{file.name}</p>
+                    <span className="text-[10px] text-muted-foreground font-mono">
+                      {formatBytes(file.size)}
+                    </span>
+                  </div>
+                </div>
+                {!loading && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => removeFile(idx)}
+                    className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Convert Button */}
+      {selectedFiles.length > 0 && !loading && (
+        <div className="flex items-center justify-center p-4 rounded-xl border border-border/50 bg-card/10 backdrop-blur-sm">
+          <Button
+            size="lg"
+            onClick={handleConvert}
+            className="w-full sm:w-auto font-semibold px-8 h-12 shadow-md bg-primary text-primary-foreground hover:bg-primary/95 animate-fade-in"
+          >
+            Convert {selectedFiles.length} {selectedFiles.length === 1 ? "File" : "Files"}
+          </Button>
         </div>
       )}
 

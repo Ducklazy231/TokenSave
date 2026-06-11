@@ -2,28 +2,44 @@ import { useState, useEffect } from "react"
 import {
   FileText,
   RotateCcw,
-  Scissors,
-  Sparkles,
-  Loader2
+  Loader2,
+  CheckCircle2,
+  XCircle,
+  AlertTriangle
 } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
 import { FileUpload } from "@/components/FileUpload"
-import { StatsPanel } from "@/components/StatsPanel"
-import { MetricsPanel } from "@/components/MetricsPanel"
 import { OutputWorkspace } from "@/components/OutputWorkspace"
-import { AIExtensionsWorkspace } from "@/components/AIExtensionsWorkspace"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { uploadDocument, type UploadResult } from "@/lib/api"
 import { useToast } from "@/lib/toast"
 import { formatNumber } from "@/lib/utils"
 
+interface BatchResult {
+  filename: string
+  size: number
+  status: "success" | "failed"
+  data?: UploadResult
+  error?: string
+}
+
 export default function Converter() {
   const [loading, setLoading] = useState(false)
   const [loadingStage, setLoadingStage] = useState(0)
   const [result, setResult] = useState<UploadResult | null>(null)
+  const [batchFiles, setBatchFiles] = useState<File[]>([])
+  const [batchResults, setBatchResults] = useState<BatchResult[]>([])
+  const [currentFileIndex, setCurrentFileIndex] = useState(0)
   const { toast } = useToast()
+
+  function formatBytes(bytes: number): string {
+    if (bytes === 0) return "0 Bytes"
+    const k = 1024
+    const sizes = ["Bytes", "KB", "MB"]
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i]
+  }
 
   // Simulate premium multi-stage loading descriptions
   useEffect(() => {
@@ -39,34 +55,136 @@ export default function Converter() {
       clearTimeout(timer2)
       clearTimeout(timer3)
     }
-  }, [loading])
+  }, [loading, currentFileIndex])
 
-  async function handleFile(file: File, turnstileToken?: string) {
+  // Reset loading stage when moving to the next file in batch
+  useEffect(() => {
+    setLoadingStage(0)
+  }, [currentFileIndex])
+
+  async function handleFiles(files: File[]) {
     setLoading(true)
     setResult(null)
+    setBatchResults([])
+    setBatchFiles(files)
+    setCurrentFileIndex(0)
+
     toast({
-      title: "Processing started",
-      description: `Uploading and converting ${file.name}...`,
+      title: "Batch conversion started",
+      description: `Processing ${files.length} document${files.length > 1 ? "s" : ""}...`,
     })
 
-    try {
-      const data = await uploadDocument(file, turnstileToken)
-      setResult(data)
+    const results: BatchResult[] = []
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
+      setCurrentFileIndex(i)
+
+      try {
+        const data = await uploadDocument(file)
+        results.push({
+          filename: file.name,
+          size: file.size,
+          status: "success",
+          data,
+        })
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Something went wrong while processing your document."
+        results.push({
+          filename: file.name,
+          size: file.size,
+          status: "failed",
+          error: msg,
+        })
+        toast({
+          title: `Failed: ${file.name}`,
+          description: msg,
+          type: "error",
+        })
+      }
+    }
+
+    setBatchResults(results)
+
+    const successful = results.filter(
+      (r) => r.status === "success" && r.data
+    ) as Array<BatchResult & { data: UploadResult }>
+
+    if (successful.length > 0) {
+      // Calculate totals
+      const totalWordCount = successful.reduce((acc, r) => acc + r.data.word_count, 0)
+      const totalCharacterCount = successful.reduce((acc, r) => acc + r.data.character_count, 0)
+      const totalLineCount = successful.reduce((acc, r) => acc + r.data.line_count, 0)
+      const totalEstimatedTokens = successful.reduce((acc, r) => acc + r.data.estimated_tokens, 0)
+      const totalEstimatedTokensGpt = successful.reduce((acc, r) => acc + r.data.estimated_tokens_gpt, 0)
+      const totalEstimatedTokensClaude = successful.reduce((acc, r) => acc + r.data.estimated_tokens_claude, 0)
+      const totalEstimatedTokensGemini = successful.reduce((acc, r) => acc + r.data.estimated_tokens_gemini, 0)
+      const totalOptimizedTokens = successful.reduce((acc, r) => acc + r.data.optimized_tokens, 0)
+      const totalSavedTokens = successful.reduce((acc, r) => acc + r.data.saved_tokens, 0)
+      const totalFileSize = successful.reduce((acc, r) => acc + r.data.file_size_bytes, 0)
+      const totalProcessingTime = successful.reduce((acc, r) => acc + r.data.processing_time_sec, 0)
+
+      const combinedSavingPercentage = totalEstimatedTokensGpt > 0
+        ? Math.round((totalSavedTokens / totalEstimatedTokensGpt) * 100 * 10) / 10
+        : 0
+
+      const formatContent = (filename: string, content: string) => {
+        const trimmed = content.trim()
+        const label = `FILE: ${filename}`
+        const underline = "=".repeat(label.length)
+        const topSeparator = "=".repeat(49)
+        return `${topSeparator}\n${label}\n${underline}\n${trimmed}`
+      }
+
+      const combinedText = successful.map((r) => formatContent(r.filename, r.data.text)).join("\n\n")
+      const combinedMarkdown = successful.map((r) => formatContent(r.filename, r.data.markdown)).join("\n\n")
+      const combinedOptimizedText = successful.map((r) => formatContent(r.filename, r.data.optimized_text)).join("\n\n")
+
+      const combinedResult: UploadResult = {
+        filename: successful.map((r) => r.filename).join(", "),
+        text: combinedText,
+        markdown: combinedMarkdown,
+        word_count: totalWordCount,
+        character_count: totalCharacterCount,
+        line_count: totalLineCount,
+        estimated_tokens: totalEstimatedTokens,
+        estimated_tokens_gpt: totalEstimatedTokensGpt,
+        estimated_tokens_claude: totalEstimatedTokensClaude,
+        estimated_tokens_gemini: totalEstimatedTokensGemini,
+        optimized_text: combinedOptimizedText,
+        optimized_tokens: totalOptimizedTokens,
+        saved_tokens: totalSavedTokens,
+        saving_percentage: combinedSavingPercentage,
+        file_size_bytes: totalFileSize,
+        processing_time_sec: totalProcessingTime,
+        extraction_status: "success",
+      }
+
+      setResult(combinedResult)
+
+      const failedCount = results.filter((r) => r.status === "failed").length
+      if (failedCount > 0) {
+        toast({
+          title: "Batch Complete with warnings",
+          description: `Successfully converted ${successful.length} of ${files.length} files.`,
+          type: "info",
+        })
+      } else {
+        toast({
+          title: "Batch Success",
+          description: `Successfully converted all ${files.length} files!`,
+          type: "success",
+        })
+      }
+    } else {
       toast({
-        title: "Success",
-        description: `Successfully optimized ${file.name}!`,
-        type: "success",
-      })
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "Something went wrong while processing your document."
-      toast({
-        title: "Conversion Failed",
-        description: msg,
+        title: "Batch Conversion Failed",
+        description: "All uploaded files failed to convert. Please check details in summary.",
         type: "error",
       })
-    } finally {
-      setLoading(false)
     }
+
+    setLoading(false)
   }
 
   const loadingMessages = [
@@ -77,42 +195,29 @@ export default function Converter() {
   ]
 
   return (
-    <div className="container max-w-6xl animate-fade-in py-10 px-4 md:py-14">
+    <div className="container max-w-6xl animate-fade-in py-10 px-4 md:py-14 space-y-8">
       {/* Header Info */}
-      <div className="mb-10 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-black tracking-tight text-gradient sm:text-4xl">
-            Convert documents to AI-ready text
-          </h1>
-          <p className="mt-2 text-sm text-muted-foreground max-w-xl leading-relaxed">
-            Drop any PDF, Word, PowerPoint, Excel, Text, or HTML file to extract clean markdown, view side-by-side token estimates, and collapse spacing noise to save context budget.
-          </p>
-        </div>
-        
-        {result && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setResult(null)
-              toast({
-                title: "Reset completed",
-                description: "Ready to convert another document.",
-              })
-            }}
-            className="h-9 hover:bg-muted"
-          >
-            <RotateCcw className="mr-1.5 h-3.5 w-3.5" /> Convert another
-          </Button>
-        )}
+      <div>
+        <h1 className="text-3xl font-black tracking-tight text-gradient sm:text-4xl">
+          Convert documents to AI-ready text
+        </h1>
+        <p className="mt-2 text-sm text-muted-foreground max-w-xl leading-relaxed">
+          Drop any PDF, Word, PowerPoint, Excel, Text, or HTML file to extract clean markdown, view side-by-side token estimates, and collapse spacing noise to save context budget.
+        </p>
       </div>
 
-      {/* Upload Drop Zone (Show if not converted yet) */}
-      {!result && !loading && (
-        <div className="mx-auto max-w-4xl">
-          <FileUpload onFile={handleFile} loading={loading} />
-        </div>
-      )}
+      {/* Upload Drop Zone & Warning Section */}
+      <div className="mx-auto max-w-4xl space-y-4">
+        <FileUpload onFiles={handleFiles} loading={loading} />
+
+        {/* PDF warning notice */}
+        {!loading && (
+          <div className="flex items-start gap-2.5 rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3.5 text-xs text-amber-600 dark:text-amber-500/90 leading-relaxed max-w-2xl mx-auto shadow-sm">
+            <span className="flex-shrink-0 text-sm mt-0.8">⚠️</span>
+            <span>Only text-based PDFs are supported. Scanned or image-only PDFs may not be converted correctly.</span>
+          </div>
+        )}
+      </div>
 
       {/* Loading Skeletons */}
       {loading && (
@@ -120,126 +225,138 @@ export default function Converter() {
           <div className="flex flex-col items-center justify-center gap-4">
             <Loader2 className="h-10 w-10 animate-spin text-primary" />
             <h3 className="text-lg font-semibold text-foreground">
-              {loadingMessages[loadingStage]}
+              {batchFiles.length > 0
+                ? `Converting ${currentFileIndex + 1} of ${batchFiles.length}: ${batchFiles[currentFileIndex]?.name}`
+                : "Processing..."}
             </h3>
-            <p className="text-xs text-muted-foreground max-w-xs leading-relaxed">
-              Converting layouts, cleaning unicode representations, and matching vector alignments. Please wait.
+            <p className="text-xs text-muted-foreground max-w-xs leading-relaxed animate-pulse">
+              {loadingMessages[loadingStage]}
             </p>
           </div>
           <div className="mx-auto max-w-sm">
-            <Progress value={(loadingStage + 1) * 25} className="h-1.5 bg-muted" />
+            <Progress
+              value={((currentFileIndex) / batchFiles.length) * 100 + ((loadingStage + 1) * 25) / batchFiles.length}
+              className="h-1.5 bg-muted"
+            />
           </div>
         </div>
       )}
 
-      {/* Conversion Output Panel */}
-      {result && (
-        <div className="space-y-8">
+      {/* Conversion Output Panel / Summary */}
+      {!loading && (result || batchResults.length > 0) && (
+        <div className="space-y-8 border-t border-border/40 pt-8 animate-fade-in">
           {/* Header file details */}
-          <div className="flex flex-wrap items-center justify-between border-b border-border/40 pb-4 gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary shadow-sm border border-primary/10">
                 <FileText className="h-5 w-5" />
               </span>
               <div>
-                <h3 className="font-semibold text-foreground leading-none">{result.filename}</h3>
+                <h3 className="font-semibold text-foreground leading-none">
+                  {result ? "Conversion Output" : "Conversion Failed"}
+                </h3>
                 <span className="text-xs text-muted-foreground leading-none mt-1.5 block">
-                  Processed successfully with MarkItDown
+                  {result
+                    ? `Processed ${batchResults.filter((r) => r.status === "success").length} of ${batchResults.length} files successfully`
+                    : "No files were converted successfully"}
                 </span>
               </div>
             </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setResult(null)
+                setBatchResults([])
+                setBatchFiles([])
+                toast({
+                  title: "Results cleared",
+                  description: "Dashboard has been reset.",
+                })
+              }}
+              className="h-9 hover:bg-muted"
+            >
+              <RotateCcw className="mr-1.5 h-3.5 w-3.5" /> Clear results
+            </Button>
           </div>
 
-          {/* Grid Layout: Savings Highlight Card + Metrics bar */}
-          <div className="grid gap-6 md:grid-cols-3">
-            {/* Savings gauge */}
-            <Card className="glass-card md:col-span-2 overflow-hidden border-primary/15 bg-gradient-to-br from-primary/5 via-card/50 to-transparent">
-              <CardContent className="flex flex-col justify-between h-full gap-6 p-6 sm:p-8">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-primary">
-                      <Scissors className="h-4 w-4" />
-                    </span>
-                    <span className="text-sm font-semibold text-foreground">
-                      Layout Token Optimization
-                    </span>
-                  </div>
-                  <Badge className="bg-primary/15 text-primary border-transparent text-[10px] uppercase font-bold tracking-wider">
-                    Lossless
-                  </Badge>
-                </div>
-                
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 my-2">
-                  <div>
-                    <div className="text-5xl font-black tracking-tight text-gradient-primary">
-                      {result.saving_percentage}%
+          {/* Summary Checklist Card */}
+          <Card className="glass-card border-border/60 bg-card/5 overflow-hidden">
+            <CardHeader className="border-b border-border/40 bg-muted/10 px-6 py-4 flex flex-row items-center justify-between space-y-0">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-primary" />
+                Conversion Summary ({batchResults.filter((r) => r.status === "success").length} of {batchResults.length} succeeded)
+              </CardTitle>
+              {batchResults.some((r) => r.status === "failed") && (
+                <span className="px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded border border-destructive/20 bg-destructive/10 text-destructive flex items-center gap-1">
+                  <AlertTriangle className="h-2.5 w-2.5" /> Some errors
+                </span>
+              )}
+            </CardHeader>
+            <CardContent className="p-0 divide-y divide-border/40">
+              {batchResults.map((item, idx) => (
+                <div key={idx} className="flex flex-wrap items-center justify-between px-6 py-3.5 text-sm gap-2">
+                  <div className="flex items-center gap-3 min-w-0">
+                    {item.status === "success" ? (
+                      <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                    ) : (
+                      <XCircle className="h-4 w-4 text-destructive flex-shrink-0" />
+                    )}
+                    <div className="truncate">
+                      <span className="font-medium text-foreground text-xs block truncate">{item.filename}</span>
+                      <span className="text-[10px] text-muted-foreground font-mono">
+                        {formatBytes(item.size)}
+                      </span>
                     </div>
-                    <div className="mt-1 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                      Token Volume Reduced
-                    </div>
                   </div>
-                  
-                  <div className="w-full max-w-xs">
-                    <div className="flex justify-between text-xs text-muted-foreground font-medium mb-1.5">
-                      <span>Optimized</span>
-                      <span>Original</span>
-                    </div>
-                    <Progress value={result.saving_percentage} className="h-2 bg-muted" />
-                    <p className="mt-2 text-xs text-muted-foreground/80 leading-relaxed">
-                      Compacted from <strong>{formatNumber(result.estimated_tokens)}</strong> to{" "}
-                      <strong>{formatNumber(result.optimized_tokens)}</strong> tokens (
-                      <strong>{formatNumber(result.saved_tokens)}</strong> saved).
-                    </p>
+                  <div className="text-right">
+                    {item.status === "success" ? (
+                      <div className="text-xs font-medium text-muted-foreground">
+                        <span className="text-emerald-500 font-semibold">{formatNumber(item.data?.optimized_tokens ?? 0)}</span> tokens{" "}
+                        <span className="text-[10px] text-muted-foreground">
+                          (saved {item.data?.saving_percentage}%)
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="text-xs font-semibold text-destructive max-w-xs sm:max-w-md truncate">
+                        {item.error || "Unknown conversion error"}
+                      </div>
+                    )}
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              ))}
+            </CardContent>
+          </Card>
 
-            {/* Quick action card or general info */}
-            <Card className="glass-card bg-card/10 border-border/60">
-              <CardContent className="p-6 flex flex-col justify-between h-full gap-4">
-                <div className="space-y-1">
-                  <span className="text-xs font-bold text-indigo-400 dark:text-indigo-500 flex items-center gap-1">
-                    <Sparkles className="h-3 w-3" />
-                    AI Ready Output
-                  </span>
-                  <h4 className="text-sm font-semibold text-foreground">Paste Ready Text</h4>
-                  <p className="text-xs text-muted-foreground leading-relaxed mt-1">
-                    The optimized output trims formatting noise, markdown indentation tables, and padding characters. Copying it saves up to 40% on API costs.
-                  </p>
-                </div>
-                
-                <div className="text-[11px] text-muted-foreground/75 border-t border-border/40 pt-3">
-                  Tested compatible with ChatGPT (GPT-4o), Anthropic Claude (3.5 Sonnet), and Google Gemini 1.5.
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          {result && (
+            <>
+              {/* Statistics Grid */}
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                <Card className="glass-card bg-card/30 p-4 border-border/60">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Characters</span>
+                  <span className="text-2xl font-black mt-1.5 block text-foreground">{formatNumber(result.character_count)}</span>
+                </Card>
+                <Card className="glass-card bg-card/30 p-4 border-border/60">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Words</span>
+                  <span className="text-2xl font-black mt-1.5 block text-foreground">{formatNumber(result.word_count)}</span>
+                </Card>
+                <Card className="glass-card bg-card/30 p-4 border-border/60">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Estimated Tokens</span>
+                  <span className="text-2xl font-black mt-1.5 block text-foreground">{formatNumber(result.estimated_tokens)}</span>
+                </Card>
+                <Card className="glass-card bg-card/30 p-4 border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
+                  <span className="text-[10px] font-bold text-primary uppercase tracking-wider block">Token Savings</span>
+                  <span className="text-2xl font-black mt-1.5 block text-gradient-primary">{result.saving_percentage}%</span>
+                </Card>
+              </div>
 
-          {/* Statistics Grid section */}
-          <div className="space-y-4">
-            <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-              Token & Character Breakdowns
-            </h4>
-            <StatsPanel result={result} />
-          </div>
-
-          {/* Engine Processing metrics */}
-          <div className="space-y-4">
-            <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-              System Telemetry
-            </h4>
-            <MetricsPanel result={result} />
-          </div>
-
-          {/* Main workspace layout: Document editor + AI integrations */}
-          <div className="grid gap-8 lg:grid-cols-2">
-            {/* Extracted content workspace */}
-            <OutputWorkspace result={result} />
-
-            {/* AI integrations extension point */}
-            <AIExtensionsWorkspace sourceText={result.text} />
-          </div>
+              {/* Main workspace layout */}
+              <div className="w-full">
+                <OutputWorkspace result={result} />
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>

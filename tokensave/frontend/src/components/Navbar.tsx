@@ -1,42 +1,19 @@
-import { Link, useLocation } from "react-router-dom"
 import { Moon, Sun, Zap } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useTheme } from "@/components/theme-provider"
-import { cn } from "@/lib/utils"
-
-const links = [
-  { to: "/", label: "Dashboard" },
-  { to: "/about", label: "About" },
-]
 
 export function Navbar() {
   const { theme, setTheme } = useTheme()
-  const location = useLocation()
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/60 bg-background/80 backdrop-blur-xl">
       <div className="container flex h-16 items-center justify-between">
-        <Link to="/" className="flex items-center gap-2 font-bold">
+        <div className="flex items-center gap-2 font-bold select-none">
           <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <Zap className="h-4 w-4" />
           </span>
           <span className="text-lg tracking-tight">TokenSave</span>
-        </Link>
-
-        <nav className="hidden items-center gap-1 md:flex">
-          {links.map((link) => (
-            <Link
-              key={link.to}
-              to={link.to}
-              className={cn(
-                "rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground",
-                location.pathname === link.to && "text-foreground",
-              )}
-            >
-              {link.label}
-            </Link>
-          ))}
-        </nav>
+        </div>
 
         <div className="flex items-center gap-2">
           <Button
@@ -51,9 +28,6 @@ export function Navbar() {
             ) : (
               <Moon className="h-4 w-4" />
             )}
-          </Button>
-          <Button asChild size="sm" className="hidden sm:inline-flex">
-            <Link to="/">Convert file</Link>
           </Button>
         </div>
       </div>
