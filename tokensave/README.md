@@ -1,121 +1,58 @@
 # TokenSave
 
-> Convert documents into AI-ready text while saving tokens.
+TokenSave is a web utility designed to convert raw document files into clean, AI-ready plain text and markdown representations while optimizing token usage for Large Language Models (LLMs).
 
-TokenSave is a production-ready SaaS web app that lets users upload documents
-(PDF, DOCX, PPTX, XLSX, TXT, HTML), extracts clean AI-ready plain text and
-markdown using [Microsoft MarkItDown](https://github.com/microsoft/markitdown),
-estimates token usage for GPT / Claude / Gemini, and produces a token-optimized
-version so you spend less on LLM context.
+## Why TokenSave?
 
-## ✨ Features
+Most document formats (like PDF, Word, PowerPoint, and Excel) contain complex formatting, style sheets, metadata, and visual structures. When passing these files directly to LLMs, this visual and formatting noise consumes a large portion of the model's context window and inflates API costs.
 
-- **Document upload** — drag & drop or browse (PDF, DOCX, PPTX, XLSX, TXT, HTML)
-- **AI-ready extraction** — clean plain text + markdown via MarkItDown
-- **Token analysis** — characters, words, and estimated GPT / Claude / Gemini tokens
-- **Smart compression** — original vs optimized text with savings percentage
-- **Export** — copy to clipboard, download TXT, download Markdown
-- **Modern SaaS UI** — dark mode, mobile responsive, landing page (Linear/Vercel/Notion vibe)
+TokenSave solves this problem by extracting only the essential, structured text content and applying lossless optimization heuristics (such as collapsing repeated whitespace, blank lines, and pagination separators) to reduce token count without losing any semantic value.
 
-## 🗂 Folder structure
+## Features
 
-```
-tokensave/
-├─ backend/                 # FastAPI + MarkItDown
-│  ├─ main.py               # API: POST /upload, GET /health
-│  ├─ requirements.txt
-│  ├─ Procfile              # Railway / generic process file
-│  ├─ railway.json          # Railway deploy config
-│  ├─ runtime.txt
-│  ├─ .env.example
-│  └─ README.md
-└─ frontend/                # React + TS + Vite + Tailwind + shadcn/ui
-   ├─ src/
-   │  ├─ components/
-   │  │  ├─ ui/            # shadcn/ui primitives (button, card, badge, tabs, progress)
-   │  │  ├─ Navbar.tsx
-   │  │  ├─ Footer.tsx
-   │  │  ├─ FileUpload.tsx
-   │  │  ├─ StatCard.tsx
-   │  │  └─ theme-provider.tsx
-   │  ├─ lib/
-   │  │  ├─ api.ts          # fetch wrapper for the backend
-   │  │  └─ utils.ts
-   │  ├─ pages/
-   │  │  ├─ Landing.tsx
-   │  │  ├─ Converter.tsx
-   │  │  └─ About.tsx
-   │  ├─ App.tsx
-   │  ├─ main.tsx
-   │  └─ index.css
-   ├─ index.html
-   ├─ package.json
-   ├─ vite.config.ts
-   ├─ tailwind.config.js
-   ├─ vercel.json
-   └─ .env.example
-```
+- **High-Fidelity Text Extraction**: Uses Microsoft MarkItDown layout engines to extract structured plain text and markdown.
+- **Smart Token Optimization**: Compares and optimizes original text against a clean, token-saving structure.
+- **AI Compatibility Grid**: Real-time checking against context limits of common LLMs.
+- **Smart Split Recommendations**: Generates logical partition recommendations if a document exceeds standard context windows.
+- **Multi-File Batch Conversion**: Process and merge up to 5 documents simultaneously.
+- **Fast Mode for spreadsheets**: Limits processing to the first 5,000 rows and skips visual styling to speed up large Excel files.
 
-## 🚀 Quick start (local)
+## Supported Files
 
-### 1. Backend
+TokenSave supports the following formats:
+- **PDF** (Text-based)
+- **Word** (.docx)
+- **PowerPoint** (.pptx)
+- **Excel** (.xlsx)
+- **Plain Text** (.txt)
+- **Web Pages** (.html, .htm)
 
-```bash
-cd backend
-python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-cp .env.example .env
-uvicorn main:app --reload --port 8000
-```
+## How It Works
 
-Backend runs at http://localhost:8000 (docs at `/docs`).
+1. **Upload**: Drag and drop or browse to select files.
+2. **Convert**: Process the documents to run token statistics and savings estimation.
+3. **Copy & Export**: Copy the optimized markdown or plain text, download files individually, or export split chunks as a ZIP archive.
 
-### 2. Frontend
+## AI Compatibility
 
-```bash
-cd frontend
-npm install
-cp .env.example .env             # ensure VITE_API_URL=http://localhost:8000
-npm run dev
-```
+The application provides an informational compatibility grid showing whether the converted text fits inside the context windows of key models:
+- **GPT-4o** (~128K tokens)
+- **GPT-5.4** (~1M tokens)
+- **Claude Sonnet** (~200K tokens)
+- **Claude 4.6** (~1M tokens)
+- **Gemini 2.5 Pro** (~2M tokens)
+- **Gemini 3.x Pro** (~1M tokens)
 
-Frontend runs at http://localhost:5173.
+If a document exceeds a model's limit, TokenSave recommends the number of split parts required and allows downloading the generated logical chunks.
 
-## ☁️ Deployment
+## Privacy
 
-### Backend → Railway
+Privacy is a core design principle:
+- All file processing occurs temporarily in memory.
+- Converted documents are never saved, cached, or permanently stored on disk.
+- Document contents are not sent to any external AI APIs.
 
-1. Push this repo to GitHub.
-2. In [Railway](https://railway.app), create a **New Project → Deploy from GitHub repo** and pick this repo.
-3. Set the **Root Directory** to `backend`.
-4. Railway auto-detects Python and installs `requirements.txt`. The included `railway.json` / `Procfile` provides the start command:
-   `uvicorn main:app --host 0.0.0.0 --port $PORT`
-5. Add an environment variable `ALLOWED_ORIGINS` set to your Vercel frontend URL (e.g. `https://tokensave.vercel.app`).
-6. Deploy and copy the public backend URL (e.g. `https://tokensave-backend.up.railway.app`).
+## Technology
 
-> Alternatively use **Render** or **Fly.io** — the `Procfile` works on both.
-
-### Frontend → Vercel
-
-1. In [Vercel](https://vercel.com), **Add New → Project** and import the same GitHub repo.
-2. Set the **Root Directory** to `frontend`.
-3. Framework preset: **Vite**. Build command `npm run build`, output directory `dist` (auto-detected).
-4. Add an environment variable `VITE_API_URL` set to your Railway backend URL.
-5. Deploy. The included `vercel.json` handles SPA routing rewrites.
-
-### Connecting the two
-
-- Frontend reads `VITE_API_URL` to call the backend.
-- Backend reads `ALLOWED_ORIGINS` to allow CORS from the frontend.
-- Set both after the first deploy, then redeploy if needed.
-
-## 🧠 Token estimates
-
-Token counts are fast heuristics (character + word density per model family) for
-planning and comparison. For exact billing, use each provider's official
-tokenizer (e.g. `tiktoken` for OpenAI).
-
-## 📜 License
-
-MIT — build freely. MarkItDown is © Microsoft, MIT licensed.
+- **Backend**: Python, FastAPI, Microsoft MarkItDown, openpyxl, tiktoken.
+- **Frontend**: React, TypeScript, Tailwind CSS, Vite, JSZip.
