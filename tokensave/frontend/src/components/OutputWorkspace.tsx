@@ -12,6 +12,8 @@ interface OutputWorkspaceProps {
 export function OutputWorkspace({ result }: OutputWorkspaceProps) {
   const { toast } = useToast()
 
+  const textToShow = result.markdown
+
   function handleDownload(filename: string, content: string, type: string) {
     const blob = new Blob([content], { type })
     const url = URL.createObjectURL(blob)
@@ -36,10 +38,10 @@ export function OutputWorkspace({ result }: OutputWorkspaceProps) {
         </CardTitle>
       </CardHeader>
       <CardContent className="p-6 space-y-4">
-        <OutputBlock text={result.markdown} mono />
+        <OutputBlock text={textToShow} mono={true} />
         
         <div className="flex flex-wrap items-center gap-2 pt-2">
-          <CopyButton text={result.markdown} label="Copy Content" />
+          <CopyButton text={textToShow} label="Copy Content" />
           <Button
             variant="outline"
             size="sm"

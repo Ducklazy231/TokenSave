@@ -25,6 +25,7 @@ class UploadResponse(BaseModel):
     file_size_bytes: int = Field(..., description="Size of the uploaded file in bytes")
     processing_time_sec: float = Field(..., description="Time taken to extract and process the file (seconds)")
     extraction_status: str = Field(..., description="Status of the extraction (success, warning, etc.)")
+    warnings: List[str] = Field(default=[], description="Warnings or progress messages generated during processing")
 
 
 # Future AI Integrations

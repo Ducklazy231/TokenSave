@@ -1,58 +1,32 @@
-from abc import ABC, abstractmethod
-from typing import List, Dict, Any
 import asyncio
+from typing import List, Dict, Any
 from app.models.schemas import RequirementItem, UserStoryItem, AcceptanceCriteria
 
-class BaseAIService(ABC):
-    """Abstract base class establishing extension points for future AI integrations."""
-    
-    @abstractmethod
+class AIService:
     async def summarize_text(self, text: str, style: str = "bullet", length: str = "medium") -> str:
-        """Summarize text content."""
-        pass
-        
-    @abstractmethod
-    async def analyze_brd(self, text: str) -> Dict[str, Any]:
-        """Extract business requirements from a BRD document."""
-        pass
-        
-    @abstractmethod
-    async def generate_user_stories(self, text: str) -> List[UserStoryItem]:
-        """Generate agile user stories with acceptance criteria and UAT test cases."""
-        pass
-
-
-class MockAIService(BaseAIService):
-    """Mock implementation returning realistic, structure-valid responses for validation."""
-    
-    async def summarize_text(self, text: str, style: str = "bullet", length: str = "medium") -> str:
-        # Simulate network latency
         await asyncio.sleep(0.6)
-        
         words = len(text.split())
-        title = "Document Overview"
         
         if style == "paragraph":
             if length == "short":
                 return f"This document contains approximately {words} words of text. The core theme centers on automated document extraction and token usage optimization. It explains how raw input streams are converted to pristine markdown layouts, showing standard LLM estimation structures."
-            else:
-                return (
-                    f"### Key Document Overview\n\n"
-                    f"This document comprises {words} words of extracted text. The primary scope covers document preprocessing for Large Language Models. "
-                    f"It details processes for removing boilerplate layout noise, collapsing runs of whitespace, and formatting plain output text. "
-                    f"By applying structured parsing tools (like Microsoft MarkItDown), it translates complex layouts into standard representations. "
-                    f"This enables downstream models to ingest the data efficiently, reducing token footprints by up to 40% and cutting inference costs."
-                )
-        else:  # bullet style
-            bullet_count = 3 if length == "medium" else (2 if length == "short" else 5)
-            bullets = [
-                f"**Document Structure**: Extracted source text has {words} words, processed successfully via MarkItDown.",
-                "**Token Compression**: Removes blank runs, decorative tables, and unicode space sequences to minimize context footprint.",
-                "**Downstream Integration**: Prepares clean, plain text and markdown suited for RAG pipelines or prompt injection.",
-                "**Cost Savings**: Trims token counts by ~30-40% on average, leading to direct savings in LLM inference costs.",
-                "**Formatting Preservation**: Keeps structural markdown elements (like list bullet symbols and links) intact for layout preservation."
-            ]
-            return "\n".join([f"- {b}" for b in bullets[:bullet_count]])
+            return (
+                f"### Key Document Overview\n\n"
+                f"This document comprises {words} words of extracted text. The primary scope covers document preprocessing for Large Language Models. "
+                f"It details processes for removing boilerplate layout noise, collapsing runs of whitespace, and formatting plain output text. "
+                f"By applying structured parsing tools (like Microsoft MarkItDown), it translates complex layouts into standard representations. "
+                f"This enables downstream models to ingest the data efficiently, reducing token footprints by up to 40% and cutting inference costs."
+            )
+        
+        bullet_count = 3 if length == "medium" else (2 if length == "short" else 5)
+        bullets = [
+            f"**Document Structure**: Extracted source text has {words} words, processed successfully via MarkItDown.",
+            "**Token Compression**: Removes blank runs, decorative tables, and unicode space sequences to minimize context footprint.",
+            "**Downstream Integration**: Prepares clean, plain text and markdown suited for RAG pipelines or prompt injection.",
+            "**Cost Savings**: Trims token counts by ~30-40% on average, leading to direct savings in LLM inference costs.",
+            "**Formatting Preservation**: Keeps structural markdown elements (like list bullet symbols and links) intact for layout preservation."
+        ]
+        return "\n".join([f"- {b}" for b in bullets[:bullet_count]])
 
     async def analyze_brd(self, text: str) -> Dict[str, Any]:
         await asyncio.sleep(0.8)
@@ -102,7 +76,7 @@ class MockAIService(BaseAIService):
     async def generate_user_stories(self, text: str) -> List[UserStoryItem]:
         await asyncio.sleep(1.0)
         
-        stories = [
+        return [
             UserStoryItem(
                 id="US-001",
                 title="Drag & Drop Document Upload",
@@ -148,11 +122,5 @@ class MockAIService(BaseAIService):
                 ]
             )
         ]
-        
-        return stories
 
-# Factory method to retrieve active AI service
-def get_ai_service() -> BaseAIService:
-    # We can fetch config settings and return an OpenAI, Anthropic, or Gemini provider later.
-    # Currently defaults to MockAIService for development and preview.
-    return MockAIService()
+ai_service = AIService()

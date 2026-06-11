@@ -5,17 +5,18 @@ import { useToast } from "@/lib/toast"
 import { Button } from "@/components/ui/button"
 
 const ACCEPTED = ".pdf,.docx,.pptx,.xlsx,.txt,.html,.htm"
-const MAX_SIZE_BYTES = 10 * 1024 * 1024 // 10MB
+const MAX_SIZE_BYTES = 10 * 1024 * 1024
 const MAX_FILES = 5
 
 interface FileUploadProps {
-  onFiles: (files: File[]) => void
+  onFiles: (files: File[], fastMode: boolean) => void
   loading?: boolean
 }
 
 export function FileUpload({ onFiles, loading }: FileUploadProps) {
   const [dragging, setDragging] = useState(false)
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
+  const [fastMode, setFastMode] = useState(true)
   const inputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
 
@@ -38,7 +39,6 @@ export function FileUpload({ onFiles, loading }: FileUploadProps) {
         const file = filesList[i]
         const ext = "." + file.name.split(".").pop()?.toLowerCase()
 
-        // 1. Client-side extension validation
         if (!allowedExtensions.includes(ext)) {
           toast({
             title: "Unsupported Format",
@@ -48,7 +48,6 @@ export function FileUpload({ onFiles, loading }: FileUploadProps) {
           continue
         }
 
-        // 2. Client-side size guard (10MB)
         if (file.size > MAX_SIZE_BYTES) {
           toast({
             title: "File Too Large",
@@ -58,7 +57,6 @@ export function FileUpload({ onFiles, loading }: FileUploadProps) {
           continue
         }
 
-        // Avoid duplicate files in the list
         if (selectedFiles.some((f) => f.name === file.name && f.size === file.size)) {
           continue
         }
@@ -68,7 +66,6 @@ export function FileUpload({ onFiles, loading }: FileUploadProps) {
 
       if (newFiles.length === 0) return
 
-      // 3. Limit validation
       if (selectedFiles.length + newFiles.length > MAX_FILES) {
         toast({
           title: "Limit Exceeded",
@@ -96,13 +93,11 @@ export function FileUpload({ onFiles, loading }: FileUploadProps) {
       })
       return
     }
-
-    onFiles(selectedFiles)
+    onFiles(selectedFiles, fastMode)
   }
 
   return (
     <div className="space-y-6">
-      {/* Upload Drop Zone Card */}
       <div
         role="button"
         tabIndex={0}
@@ -153,11 +148,10 @@ export function FileUpload({ onFiles, loading }: FileUploadProps) {
         </h3>
         <p className="mt-1.5 text-xs text-muted-foreground max-w-sm">
           {loading
-            ? "Processing your documents sequentially using Microsoft MarkItDown"
+            ? "Processing your documents"
             : "Drop up to 5 documents here, or click to browse files"}
         </p>
 
-        {/* Supported Types Indicators */}
         <div className="mt-5 flex flex-wrap items-center justify-center gap-1.5">
           {["PDF", "DOCX", "PPTX", "XLSX", "TXT", "HTML"].map((t) => (
             <span
@@ -171,7 +165,23 @@ export function FileUpload({ onFiles, loading }: FileUploadProps) {
         </div>
       </div>
 
-      {/* Selected Files List Section */}
+      {!loading && (
+        <div className="flex items-center justify-start px-2 py-1">
+          <label className="flex items-center gap-2 select-none cursor-pointer">
+            <input
+              type="checkbox"
+              id="fastModeToggle"
+              checked={fastMode}
+              onChange={(e) => setFastMode(e.target.checked)}
+              className="h-4 w-4 rounded border-border text-primary focus:ring-primary focus:ring-offset-0 bg-transparent cursor-pointer"
+            />
+            <span className="text-xs font-semibold text-foreground/80">
+              Fast Mode (limit Excel to 5,000 rows, skip styles/charts)
+            </span>
+          </label>
+        </div>
+      )}
+
       {selectedFiles.length > 0 && (
         <div className="rounded-xl border border-border/60 bg-card/10 overflow-hidden">
           <div className="border-b border-border/40 bg-muted/30 px-4 py-2.5 flex items-center justify-between">
@@ -218,7 +228,6 @@ export function FileUpload({ onFiles, loading }: FileUploadProps) {
         </div>
       )}
 
-      {/* Convert Button */}
       {selectedFiles.length > 0 && !loading && (
         <div className="flex items-center justify-center p-4 rounded-xl border border-border/50 bg-card/10 backdrop-blur-sm">
           <Button
@@ -231,7 +240,6 @@ export function FileUpload({ onFiles, loading }: FileUploadProps) {
         </div>
       )}
 
-      {/* Safety & privacy info statement */}
       <div className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground/80 py-2 border-t border-border/30">
         <ShieldAlert className="h-3.5 w-3.5 text-primary/80" />
         <span>Files are processed temporarily and are not permanently stored.</span>

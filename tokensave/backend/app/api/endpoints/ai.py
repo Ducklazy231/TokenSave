@@ -1,20 +1,17 @@
 import time
-from fastapi import APIRouter, HTTPException, Depends, status
+from fastapi import APIRouter, HTTPException, status
 from app.models.schemas import (
     AISummaryRequest, AISummaryResponse,
     AIBrdRequest, AIBrdResponse,
     AIUserStoryRequest, AIUserStoryResponse
 )
-from app.services.ai_service import get_ai_service, BaseAIService
+from app.services.ai_service import ai_service
 from app.services.token_service import token_service
 
 router = APIRouter()
 
 @router.post("/ai/summarize", response_model=AISummaryResponse)
-async def summarize(
-    payload: AISummaryRequest,
-    ai_service: BaseAIService = Depends(get_ai_service)
-) -> AISummaryResponse:
+async def summarize(payload: AISummaryRequest) -> AISummaryResponse:
     if not payload.text or not payload.text.strip():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -29,7 +26,6 @@ async def summarize(
     )
     end_time = time.perf_counter()
     
-    # Estimate tokens in summary
     summary_tokens = token_service.estimate_tokens(summary, "gpt")
     
     return AISummaryResponse(
@@ -40,10 +36,7 @@ async def summarize(
 
 
 @router.post("/ai/analyze-brd", response_model=AIBrdResponse)
-async def analyze_brd(
-    payload: AIBrdRequest,
-    ai_service: BaseAIService = Depends(get_ai_service)
-) -> AIBrdResponse:
+async def analyze_brd(payload: AIBrdRequest) -> AIBrdResponse:
     if not payload.text or not payload.text.strip():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -62,10 +55,7 @@ async def analyze_brd(
 
 
 @router.post("/ai/generate-stories", response_model=AIUserStoryResponse)
-async def generate_stories(
-    payload: AIUserStoryRequest,
-    ai_service: BaseAIService = Depends(get_ai_service)
-) -> AIUserStoryResponse:
+async def generate_stories(payload: AIUserStoryRequest) -> AIUserStoryResponse:
     if not payload.text or not payload.text.strip():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
