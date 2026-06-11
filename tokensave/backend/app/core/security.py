@@ -1,5 +1,6 @@
 import re
 import os
+from typing import Optional
 from fastapi import HTTPException, status
 from app.core.config import settings
 
@@ -81,3 +82,32 @@ def sanitize_text(text: str) -> str:
     text = re.sub(r"<script\b[^>]*>([\s\S]*?)<\/script>", "", text, flags=re.IGNORECASE)
     # Escape simple tags or return stripped
     return text
+
+import urllib.request
+import urllib.parse
+import json
+
+def verify_turnstile_token(token: Optional[str]) -> bool:
+    """Verify Cloudflare Turnstile token via siteverify API."""
+    # Bypassed if TURNSTILE_SECRET_KEY is not configured
+    if not settings.TURNSTILE_SECRET_KEY:
+        return True
+        
+    if not token:
+        return False
+        
+    url = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
+    data = urllib.parse.urlencode({
+        "secret": settings.TURNSTILE_SECRET_KEY,
+        "response": token
+    }).encode("utf-8")
+    
+    try:
+        req = urllib.request.Request(url, data=data, method="POST")
+        with urllib.request.urlopen(req, timeout=5) as response:
+            res_body = json.loads(response.read().decode("utf-8"))
+            return res_body.get("success", False)
+    except Exception:
+        # Gracefully handle validation/connection errors by rejecting or failing closed
+        return False
+

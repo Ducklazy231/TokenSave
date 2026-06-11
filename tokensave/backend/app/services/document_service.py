@@ -3,18 +3,23 @@ import re
 import tempfile
 from fastapi import HTTPException, status
 
-try:
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
     from markitdown import MarkItDown
-except ImportError:
-    MarkItDown = None
+else:
+    try:
+        from markitdown import MarkItDown
+    except ImportError:
+        MarkItDown = None
 
 class DocumentService:
     def __init__(self):
         # Initialize MarkItDown parser. If markitdown is not available, we handle it gracefully.
-        self._parser = None
+        self._parser: Optional[MarkItDown] = None
         if MarkItDown is not None:
             try:
-                self._parser = MarkItDown(enable_plugins=False)
+                self._parser = MarkItDown()
             except Exception:
                 pass
 
@@ -24,6 +29,7 @@ class DocumentService:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Microsoft MarkItDown is not loaded or installed. Ensure markitdown package is properly configured."
             )
+        assert self._parser is not None
         return self._parser
 
     def convert_to_markdown(self, file_content: bytes, extension: str) -> str:

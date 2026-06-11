@@ -41,7 +41,7 @@ export default function Converter() {
     }
   }, [loading])
 
-  async function handleFile(file: File) {
+  async function handleFile(file: File, turnstileToken?: string) {
     setLoading(true)
     setResult(null)
     toast({
@@ -50,7 +50,7 @@ export default function Converter() {
     })
 
     try {
-      const data = await uploadDocument(file)
+      const data = await uploadDocument(file, turnstileToken)
       setResult(data)
       toast({
         title: "Success",
@@ -81,11 +81,11 @@ export default function Converter() {
       {/* Header Info */}
       <div className="mb-10 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-gradient sm:text-4xl">
-            Workspace Dashboard
+          <h1 className="text-3xl font-black tracking-tight text-gradient sm:text-4xl">
+            Convert documents to AI-ready text
           </h1>
-          <p className="mt-2 text-sm text-muted-foreground max-w-xl">
-            Upload document objects to extract clean raw texts, compute multi-tokenizer counts, and compress token payloads for OpenAI, Claude, and Gemini.
+          <p className="mt-2 text-sm text-muted-foreground max-w-xl leading-relaxed">
+            Drop any PDF, Word, PowerPoint, Excel, Text, or HTML file to extract clean markdown, view side-by-side token estimates, and collapse spacing noise to save context budget.
           </p>
         </div>
         

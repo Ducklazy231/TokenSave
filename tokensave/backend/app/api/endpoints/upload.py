@@ -1,15 +1,31 @@
 import time
-from fastapi import APIRouter, File, UploadFile, HTTPException, status
+from typing import Optional
+from fastapi import APIRouter, File, UploadFile, HTTPException, Header, status
 from app.models.schemas import UploadResponse
 from app.core.config import settings
-from app.core.security import validate_file_metadata, validate_file_content, sanitize_text
+from app.core.security import (
+    validate_file_metadata,
+    validate_file_content,
+    sanitize_text,
+    verify_turnstile_token,
+)
 from app.services.document_service import document_service
 from app.services.token_service import token_service
 
 router = APIRouter()
 
 @router.post("/upload", response_model=UploadResponse)
-async def upload_document(file: UploadFile = File(...)) -> UploadResponse:
+async def upload_document(
+    file: UploadFile = File(...),
+    x_turnstile_token: Optional[str] = Header(None)
+) -> UploadResponse:
+    # 0. Bot Protection Validation
+    if not verify_turnstile_token(x_turnstile_token):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Security verification failed. Please complete the CAPTCHA."
+        )
+
     filename = file.filename or "document"
     
     # 1. Stream file in chunks to validate size mid-transfer (Denial of Service Guard)

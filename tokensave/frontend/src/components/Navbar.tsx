@@ -5,8 +5,7 @@ import { useTheme } from "@/components/theme-provider"
 import { cn } from "@/lib/utils"
 
 const links = [
-  { to: "/", label: "Home" },
-  { to: "/converter", label: "Converter" },
+  { to: "/", label: "Dashboard" },
   { to: "/about", label: "About" },
 ]
 
@@ -45,6 +44,7 @@ export function Navbar() {
             size="icon"
             aria-label="Toggle theme"
             onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            className="rounded-lg h-9 w-9 border border-border/40 hover:bg-muted"
           >
             {theme === "dark" ? (
               <Sun className="h-4 w-4" />
@@ -52,8 +52,8 @@ export function Navbar() {
               <Moon className="h-4 w-4" />
             )}
           </Button>
-          <Button asChild size="sm">
-            <Link to="/converter">Try it free</Link>
+          <Button asChild size="sm" className="hidden sm:inline-flex">
+            <Link to="/">Convert file</Link>
           </Button>
         </div>
       </div>

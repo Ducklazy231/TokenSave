@@ -16,6 +16,10 @@ class Settings(BaseSettings):
     # AI service configuration (could specify providers later, e.g. "openai", "gemini", etc.)
     AI_PROVIDER: str = "mock"
     
+    # Cloudflare Turnstile Bot Protection Secret Key
+    # Defaults to empty string (bypassed in development if not configured)
+    TURNSTILE_SECRET_KEY: str = ""
+    
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

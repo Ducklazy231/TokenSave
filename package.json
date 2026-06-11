@@ -1,0 +1,9 @@
+{
+  "name": "tokensave-workspace",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "npm --prefix tokensave/frontend run dev",
+    "backend": "powershell -Command \"cd tokensave/backend; .venv/Scripts/activate; python -m uvicorn main:app --reload\""
+  }
+}
