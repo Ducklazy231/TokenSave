@@ -1,9 +1,12 @@
 import { useState } from "react"
-import { Check, Copy, Download, FileText } from "lucide-react"
+import { Check, Copy, Download, FileText, Info } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/lib/toast"
 import { type UploadResult } from "@/lib/api"
+import { formatNumber } from "@/lib/utils"
+
+const PREVIEW_CHAR_LIMIT = 50_000
 
 interface OutputWorkspaceProps {
   result: UploadResult
@@ -12,7 +15,7 @@ interface OutputWorkspaceProps {
 export function OutputWorkspace({ result }: OutputWorkspaceProps) {
   const { toast } = useToast()
 
-  const textToShow = result.markdown
+  const fullText = result.markdown
 
   function handleDownload(filename: string, content: string, type: string) {
     const blob = new Blob([content], { type })
@@ -38,10 +41,10 @@ export function OutputWorkspace({ result }: OutputWorkspaceProps) {
         </CardTitle>
       </CardHeader>
       <CardContent className="p-6 space-y-4">
-        <OutputBlock text={textToShow} mono={true} />
+        <OutputBlock fullText={fullText} mono={true} />
         
         <div className="flex flex-wrap items-center gap-2 pt-2">
-          <CopyButton text={textToShow} label="Copy Content" />
+          <CopyButton text={fullText} label="Copy Content" />
           <Button
             variant="outline"
             size="sm"
@@ -74,15 +77,32 @@ export function OutputWorkspace({ result }: OutputWorkspaceProps) {
   )
 }
 
-function OutputBlock({ text, mono }: { text: string; mono?: boolean }) {
+function OutputBlock({ fullText, mono }: { fullText: string; mono?: boolean }) {
+  const isTruncated = fullText.length > PREVIEW_CHAR_LIMIT
+  const displayText = isTruncated
+    ? fullText.slice(0, PREVIEW_CHAR_LIMIT)
+    : fullText
+
   return (
-    <pre
-      className={`max-h-96 min-h-[200px] overflow-auto whitespace-pre-wrap rounded-lg border border-border/80 bg-muted/20 p-4 text-sm leading-relaxed text-foreground/90 selection:bg-primary/20 focus:outline-none focus:ring-1 focus:ring-primary/20 ${
-        mono ? "font-mono text-xs" : ""
-      }`}
-    >
-      {text || "(No content extracted)"}
-    </pre>
+    <div>
+      <pre
+        className={`max-h-[480px] min-h-[200px] overflow-auto whitespace-pre-wrap rounded-lg border border-border/80 bg-muted/20 p-4 text-sm leading-relaxed text-foreground/90 selection:bg-primary/20 focus:outline-none focus:ring-1 focus:ring-primary/20 ${
+          mono ? "font-mono text-xs" : ""
+        }`}
+      >
+        {displayText || "(No content extracted)"}
+      </pre>
+      {isTruncated && (
+        <div className="mt-2 flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3.5 py-2.5 text-xs text-amber-600 dark:text-amber-400 leading-relaxed">
+          <Info className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
+          <span>
+            Preview truncated — showing first {formatNumber(PREVIEW_CHAR_LIMIT)} of{" "}
+            {formatNumber(fullText.length)} characters. Use <strong>Copy</strong> or{" "}
+            <strong>Download</strong> to get the full content.
+          </span>
+        </div>
+      )}
+    </div>
   )
 }
 

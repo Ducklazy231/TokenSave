@@ -574,16 +574,26 @@ function splitContent(content: string, targetTokenLimit: number): string[] {
 function SplitGenerator({ result }: { result: UploadResult }) {
   const [selectedLimit, setSelectedLimit] = useState<number>(128000)
   const [chunks, setChunks] = useState<string[]>([])
+  const [splitting, setSplitting] = useState(false)
   const { toast } = useToast()
 
   const handleGenerateSplits = () => {
-    const splitChunks = splitContent(result.markdown, selectedLimit)
-    setChunks(splitChunks)
-    toast({
-      title: "Split files generated",
-      description: `Successfully split document into ${splitChunks.length} logical chunks.`,
-      type: "success",
-    })
+    setSplitting(true)
+    // Yield to the browser so the "Generating…" UI can paint before
+    // the heavy synchronous splitContent work blocks the main thread.
+    setTimeout(() => {
+      try {
+        const splitChunks = splitContent(result.markdown, selectedLimit)
+        setChunks(splitChunks)
+        toast({
+          title: "Split files generated",
+          description: `Successfully split document into ${splitChunks.length} logical chunks.`,
+          type: "success",
+        })
+      } finally {
+        setSplitting(false)
+      }
+    }, 0)
   }
 
   const handleDownloadChunk = (chunk: string, idx: number) => {
@@ -647,8 +657,9 @@ function SplitGenerator({ result }: { result: UploadResult }) {
             <option value={1000000} className="bg-background text-foreground dark:bg-card dark:text-foreground">Claude 4.6 / Gemini 1.5 Flash (~1M)</option>
             <option value={2000000} className="bg-background text-foreground dark:bg-card dark:text-foreground">Gemini 2.5 Pro (~2M)</option>
           </select>
-          <Button size="sm" onClick={handleGenerateSplits} className="h-9 font-semibold">
-            Generate Splits
+          <Button size="sm" onClick={handleGenerateSplits} disabled={splitting} className="h-9 font-semibold gap-1.5">
+            {splitting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            {splitting ? "Generating…" : "Generate Splits"}
           </Button>
         </div>
       </div>
