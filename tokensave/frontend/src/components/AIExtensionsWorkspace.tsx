@@ -12,6 +12,9 @@ import {
   type AISummaryResult,
   type AIBrdResult,
   type AIUserStoryResult,
+  type AIRequirementItem,
+  type AIUserStoryItem,
+  type AIAcceptanceCriteria,
 } from "@/lib/api"
 
 interface AIExtensionsWorkspaceProps {
@@ -206,7 +209,7 @@ export function AIExtensionsWorkspace({ sourceText }: AIExtensionsWorkspaceProps
                 <div className="space-y-2">
                   <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider">Extracted Requirements</h4>
                   <div className="grid gap-3">
-                    {brdResult.requirements.map((req) => (
+                    {brdResult.requirements.map((req: AIRequirementItem) => (
                       <div key={req.id} className="rounded-lg border border-border bg-card/60 p-4 shadow-sm flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
@@ -257,7 +260,7 @@ export function AIExtensionsWorkspace({ sourceText }: AIExtensionsWorkspaceProps
 
             {storiesResult ? (
               <div className="space-y-4">
-                {storiesResult.user_stories.map((story) => (
+                {storiesResult.user_stories.map((story: AIUserStoryItem) => (
                   <div key={story.id} className="rounded-lg border border-border bg-card/65 p-5 shadow-sm space-y-4">
                     {/* Story Header */}
                     <div className="border-b border-border pb-3 flex items-center justify-between gap-3">
@@ -288,7 +291,7 @@ export function AIExtensionsWorkspace({ sourceText }: AIExtensionsWorkspaceProps
                     <div className="space-y-2">
                       <h5 className="text-[10px] font-bold text-foreground uppercase tracking-wider">Acceptance Criteria</h5>
                       <div className="space-y-3 pl-3 border-l border-primary/20">
-                        {story.acceptance_criteria.map((ac, index) => (
+                        {story.acceptance_criteria.map((ac: AIAcceptanceCriteria, index: number) => (
                           <div key={index} className="text-xs space-y-1">
                             <span className="font-semibold text-foreground block">Scenario: {ac.scenario}</span>
                             <div className="grid grid-cols-[60px_1fr] gap-1 pl-2 text-muted-foreground">
