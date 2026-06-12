@@ -64,7 +64,7 @@ export interface AIUserStoryResult {
 
 const API_URL =
   (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") ||
-  "http://localhost:8000"
+  "https://tokensave-backend.up.railway.app"
 
 export async function uploadDocument(file: File, fastMode: boolean = true): Promise<UploadResult> {
   const formData = new FormData()
